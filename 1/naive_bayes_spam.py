@@ -44,9 +44,18 @@ class NBClassifier:
                 prb[i] += np.log(st.nbinom.pmf(k=px[j], n=self.r[i][j], p=1-self.py[i]))
         return prb
 
-    def average_lambda(self):
+    def average_lambda(self, xs, ys, y):
         # Not sure here
-        return self.a / self.b
+        result = []
+        xs = xs[ys[0] == y]
+        for d in range(self.dim):
+            a = self.a
+            b = self.b
+            for x in xs.values:
+                a += x[d]
+                b += 1
+            result.append(np.divide(a, b))
+        return result
 
 
 nbc = NBClassifier(feature_number, 2)
@@ -78,6 +87,7 @@ def choose_mis(pred_y, label):
     return misidx
 
 
+# Need to mark names and give probability
 mis_idx = choose_mis(pred, label_test)
 mis_idx = [mis_idx[i] for i in np.random.choice(len(mis_idx), 3).astype(int)]
 print(x_test.iloc[mis_idx], pred[mis_idx], label_test.iloc[mis_idx].values)
@@ -85,10 +95,11 @@ for m in mis_idx:
     x = x_test.iloc[m].values
     plt.title("Features of Misclassified emails classify "+str(label_test.iloc[m].values[0])+" as "+str(pred[m]))
     plt.plot(np.arange(nbc.dim), x, label='email')
-    plt.plot(np.arange(nbc.dim), np.full(nbc.dim, nbc.average_lambda()), label='Average Lambda y=0')
-    plt.plot(np.arange(nbc.dim), np.full(nbc.dim, nbc.average_lambda()), label='Average Lambda y=1')
+    plt.plot(np.arange(nbc.dim), nbc.average_lambda(x_train, label_train, 0), label='Average Lambda y=0')
+    plt.plot(np.arange(nbc.dim), nbc.average_lambda(x_train, label_train, 1), label='Average Lambda y=1')
     plt.xlabel("Index of Features")
     plt.ylabel("Value of Features")
+    plt.legend()
     plt.show()
 
 
