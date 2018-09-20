@@ -87,24 +87,50 @@ def choose_mis(pred_y, label):
     return misidx
 
 
+names = []
+with open('README.md', 'r') as f:
+    for l in f:
+        names.append(l)
+names = [n.replace('\n', '') for n in names[2:] if len(n.replace('\n', '')) > 0]
+
+
 # Need to mark names and give probability
 mis_idx = choose_mis(pred, label_test)
 mis_idx = [mis_idx[i] for i in np.random.choice(len(mis_idx), 3).astype(int)]
-print(x_test.iloc[mis_idx], pred[mis_idx], label_test.iloc[mis_idx].values)
-for m in mis_idx:
-    x = x_test.iloc[m].values
-    plt.title("Features of Misclassified emails classify "+str(label_test.iloc[m].values[0])+" as "+str(pred[m]))
-    plt.plot(np.arange(nbc.dim), x, label='email')
+idx = mis_idx
+print(x_test.iloc[idx], pred[idx], [prob[i] for i in idx], label_test.iloc[idx].values)
+for i, m in enumerate(idx):
+    fig = plt.figure(num=None, figsize=(8, 6), dpi=1080)
+    xx = x_test.iloc[m].values
+    plt.title(
+        "Features of Misclassified emails classify " + str(label_test.iloc[m].values[0]) + " as " + str(pred[m]))
+    plt.plot(np.arange(nbc.dim), xx, label='email')
     plt.plot(np.arange(nbc.dim), nbc.average_lambda(x_train, label_train, 0), label='Average Lambda y=0')
     plt.plot(np.arange(nbc.dim), nbc.average_lambda(x_train, label_train, 1), label='Average Lambda y=1')
+    plt.xticks(np.arange(nbc.dim), names, rotation='vertical')
     plt.xlabel("Index of Features")
     plt.ylabel("Value of Features")
     plt.legend()
-    plt.show()
-
+    plt.savefig('mis_'+str(i))
+    #plt.show()
 
 most_ambi = np.array([np.abs(p[0]-p[1]) for p in prob])
 most_ambi.sort()
 ambi_idx = [i for i, p in enumerate(prob) if np.abs(p[0]-p[1]) in set(most_ambi[:3])]
-print(x_test.iloc[ambi_idx])
+idx = ambi_idx
+print(x_test.iloc[idx], pred[idx], [prob[i] for i in idx], label_test.iloc[idx].values)
+for i, m in enumerate(idx):
+    fig = plt.figure(num=None, figsize=(8, 6), dpi=1080)
+    xx = x_test.iloc[m].values
+    plt.title(
+        "Features of Most Ambiguilty emails classify " + str(label_test.iloc[m].values[0]) + " as " + str(pred[m]))
+    plt.plot(np.arange(nbc.dim), xx, label='email')
+    plt.plot(np.arange(nbc.dim), nbc.average_lambda(x_train, label_train, 0), label='Average Lambda y=0')
+    plt.plot(np.arange(nbc.dim), nbc.average_lambda(x_train, label_train, 1), label='Average Lambda y=1')
+    plt.xticks(np.arange(nbc.dim), names, rotation='vertical')
+    plt.xlabel("Index of Features")
+    plt.ylabel("Value of Features")
+    plt.legend()
+    plt.savefig("Ambig_" + str(i))
+    #plt.show()
 ### Need To Improve the Comparation Process
