@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-import scipy.special as sp
+import matplotlib.pyplot as plt
 import scipy.stats as st
 import math
 
@@ -40,8 +40,13 @@ class NBClassifier:
         prb = np.full(self.c, 1.0).astype(np.float64)
         for i in range(self.c):
             for j in range(self.dim):
+                # Not sure here
                 prb[i] += np.log(st.nbinom.pmf(k=px[j], n=self.r[i][j], p=1-self.py[i]))
         return prb
+
+    def average_lambda(self):
+        # Not sure here
+        return self.a / self.b
 
 
 nbc = NBClassifier(feature_number, 2)
@@ -49,10 +54,9 @@ nbc.train(x_train, label_train)
 prob = np.zeros([num_test, 2], dtype=np.float64)
 bad_case = []
 for i, x in enumerate(x_test.values):
-    p = nbc.predict(x)
-    prob[i] = p
+    prob[i] = nbc.predict(x)
 
-prob = [[a/(a+b), b/(a+b)]for a, b in prob]
+prob = [[np.divide(a, np.add(a, b)), np.divide(b, np.add(a, b))]for a, b in prob]
 pred = np.array([a > b for a, b in prob]).astype(int)
 
 
@@ -64,4 +68,32 @@ def cal_result(pred_y, label):
 
 
 print(cal_result(pred, label_test))
+
+
+def choose_mis(pred_y, label):
+    misidx = []
+    for i, p in enumerate(zip(pred_y, label.values)):
+        if p[0] != p[1]:
+            misidx.append(i)
+    return misidx
+
+
+mis_idx = choose_mis(pred, label_test)
+mis_idx = [mis_idx[i] for i in np.random.choice(len(mis_idx), 3).astype(int)]
+print(x_test.iloc[mis_idx], pred[mis_idx], label_test.iloc[mis_idx].values)
+for m in mis_idx:
+    x = x_test.iloc[m].values
+    plt.title("Features of Misclassified emails classify "+str(label_test.iloc[m].values[0])+" as "+str(pred[m]))
+    plt.plot(np.arange(nbc.dim), x, label='email')
+    plt.plot(np.arange(nbc.dim), np.full(nbc.dim, nbc.average_lambda()), label='Average Lambda y=0')
+    plt.plot(np.arange(nbc.dim), np.full(nbc.dim, nbc.average_lambda()), label='Average Lambda y=1')
+    plt.xlabel("Index of Features")
+    plt.ylabel("Value of Features")
+    plt.show()
+
+
+most_ambi = np.array([np.abs(p[0]-p[1]) for p in prob])
+most_ambi.sort()
+ambi_idx = [i for i, p in enumerate(prob) if np.abs(p[0]-p[1]) in set(most_ambi[:3])]
+print(x_test.iloc[ambi_idx])
 ### Need To Improve the Comparation Process
