@@ -98,7 +98,7 @@ mis_idx = [mis_idx[i] for i in np.random.choice(len(mis_idx), 3).astype(int)]
 idx = mis_idx
 print(x_test.iloc[idx], pred[idx], [prob[i] for i in idx], label_test.iloc[idx].values)
 for i, m in enumerate(idx):
-    fig = plt.figure(num=None, figsize=(8, 6), dpi=1080)
+    fig = plt.figure(num=None, figsize=(16, 9), dpi=720)
     xx = x_test.iloc[m].values
     plt.title(
         "Features of Misclassified emails classify " + str(label_test.iloc[m].values[0]) + " as " + str(pred[m])+" #"+str(i))
@@ -118,7 +118,7 @@ ambi_idx = [i for i, p in enumerate(prob) if np.abs(p[0]-p[1]) in set(most_ambi[
 idx = ambi_idx
 print(x_test.iloc[idx], pred[idx], [prob[i] for i in idx], label_test.iloc[idx].values)
 for i, m in enumerate(idx):
-    fig = plt.figure(num=None, figsize=(8, 6), dpi=1080)
+    fig = plt.figure(num=None, figsize=(16, 9), dpi=720)
     xx = x_test.iloc[m].values
     plt.title(
         "Features of Most Ambiguilty emails " + str(label_test.iloc[m].values[0]) + " classified as " + str(pred[m])+" #"+str(i))
