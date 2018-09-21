@@ -2,7 +2,6 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.stats as st
-import math
 
 label_train = pd.read_csv('label_train.csv', header=None)
 label_test = pd.read_csv('label_test.csv', header=None)
@@ -23,8 +22,8 @@ class NBClassifier:
         self.py = np.zeros(2)
 
     def train(self, xs, ys):
-        self.py[0] = 1 /(self.b + ys[ys[0] == 0].shape[0] + 1)
-        self.py[1] = 1 /(self.b + ys[ys[0] == 1].shape[0] + 1)
+        self.py[0] = 1 / (self.b + ys[ys[0] == 0].shape[0] + 1)
+        self.py[1] = 1 / (self.b + ys[ys[0] == 1].shape[0] + 1)
 
         x_zeros = xs[ys[0] == 0]
         x_ones = xs[ys[0] == 1]
@@ -40,7 +39,6 @@ class NBClassifier:
         prb = np.full(self.c, 1.0).astype(np.float64)
         for i in range(self.c):
             for j in range(self.dim):
-                # Not sure here
                 prb[i] += np.log(st.nbinom.pmf(k=px[j], n=self.r[i][j], p=1-self.py[i]))
         return prb
 
@@ -65,8 +63,8 @@ bad_case = []
 for i, x in enumerate(x_test.values):
     prob[i] = nbc.predict(x)
 
-prob = [[np.divide(a, np.add(a, b)), np.divide(b, np.add(a, b))]for a, b in prob]
-pred = np.array([a > b for a, b in prob]).astype(int)
+
+pred = np.array([a < b for a, b in prob]).astype(int)
 
 
 def cal_result(pred_y, label):
@@ -103,10 +101,10 @@ for i, m in enumerate(idx):
     fig = plt.figure(num=None, figsize=(8, 6), dpi=1080)
     xx = x_test.iloc[m].values
     plt.title(
-        "Features of Misclassified emails classify " + str(label_test.iloc[m].values[0]) + " as " + str(pred[m]))
-    plt.plot(np.arange(nbc.dim), xx, label='email')
-    plt.plot(np.arange(nbc.dim), nbc.average_lambda(x_train, label_train, 0), label='Average Lambda y=0')
-    plt.plot(np.arange(nbc.dim), nbc.average_lambda(x_train, label_train, 1), label='Average Lambda y=1')
+        "Features of Misclassified emails classify " + str(label_test.iloc[m].values[0]) + " as " + str(pred[m])+" #"+str(i))
+    plt.plot(np.arange(nbc.dim), xx, 'ro', label='email')
+    plt.plot(np.arange(nbc.dim), nbc.average_lambda(x_train, label_train, 0), 'go', label='Average Lambda y=0')
+    plt.plot(np.arange(nbc.dim), nbc.average_lambda(x_train, label_train, 1), 'bo', label='Average Lambda y=1')
     plt.xticks(np.arange(nbc.dim), names, rotation='vertical')
     plt.xlabel("Index of Features")
     plt.ylabel("Value of Features")
@@ -123,14 +121,17 @@ for i, m in enumerate(idx):
     fig = plt.figure(num=None, figsize=(8, 6), dpi=1080)
     xx = x_test.iloc[m].values
     plt.title(
-        "Features of Most Ambiguilty emails classify " + str(label_test.iloc[m].values[0]) + " as " + str(pred[m]))
-    plt.plot(np.arange(nbc.dim), xx, label='email')
-    plt.plot(np.arange(nbc.dim), nbc.average_lambda(x_train, label_train, 0), label='Average Lambda y=0')
-    plt.plot(np.arange(nbc.dim), nbc.average_lambda(x_train, label_train, 1), label='Average Lambda y=1')
+        "Features of Most Ambiguilty emails " + str(label_test.iloc[m].values[0]) + " classified as " + str(pred[m])+" #"+str(i))
+    plt.plot(np.arange(nbc.dim), xx, 'ro', label='email')
+    plt.plot(np.arange(nbc.dim), nbc.average_lambda(x_train, label_train, 0), 'go', label='Average Lambda y=0')
+    plt.plot(np.arange(nbc.dim), nbc.average_lambda(x_train, label_train, 1), 'bo', label='Average Lambda y=1')
     plt.xticks(np.arange(nbc.dim), names, rotation='vertical')
     plt.xlabel("Index of Features")
     plt.ylabel("Value of Features")
     plt.legend()
     plt.savefig("Ambig_" + str(i))
     #plt.show()
-### Need To Improve the Comparation Process
+
+#accuray needs 461 88% non-83% spam higher 95%
+#mine: 86%, 81.4%, 94.5%
+#sklearn multiNB: 86%, 80%, 95.6%
