@@ -24,11 +24,17 @@ class NBClassifier:
         self.r = np.zeros([self.c, self.dim])
         self.a, self.b, self.e, self.f = a, b, e, f
         self.py = np.zeros(2)
+        self.pyNb = np.zeros(2)
 
     # Train the model by calculating distributions
     def train(self, xs, ys):
-        self.py[0] = 1 / (self.b + ys[ys[0] == 0].shape[0] + 1)
-        self.py[1] = 1 / (self.b + ys[ys[0] == 1].shape[0] + 1)
+        # Calculate the distribution of y in training data
+        self.py[0] = (self.f + ys[ys[0] == 0].shape[0]) / (xs.shape[0] + self.e + self.f)
+        self.py[1] = (self.e + ys[ys[0] == 1].shape[0]) / (xs.shape[0] + self.e + self.f)
+
+        # Calculate the probability for negative binomial distribution
+        self.pyNb[0] = 1 / (self.b + ys[ys[0] == 0].shape[0] + 1)
+        self.pyNb[1] = 1 / (self.b + ys[ys[0] == 1].shape[0] + 1)
 
         x_zeros = xs[ys[0] == 0]
         x_ones = xs[ys[0] == 1]
@@ -45,8 +51,10 @@ class NBClassifier:
     def predict(self, px):
         prb = np.full(self.c, 1.0).astype(np.float64)
         for i in range(self.c):
+            prb[i] += np.log(self.py[i])
             for j in range(self.dim):
-                prb[i] += np.log(st.nbinom.pmf(k=px[j], n=self.r[i][j], p=1-self.py[i]))
+                # Modified a little to fit scipy function
+                prb[i] += np.log(st.nbinom.pmf(k=px[j], n=self.r[i][j], p=1-self.pyNb[i]))
         return prb
 
     # Calculate the parameters for plot for (c) and (d)
@@ -103,13 +111,20 @@ with open('README.md', 'r') as f:
 names = [n.replace('\n', '') for n in names[2:] if len(n.replace('\n', '')) > 0]
 
 
+# Calculate the real probability based on the log probability
+def calRealProbability(a, b):
+    sum = np.add(np.exp(a), np.exp(b))
+    return [np.divide(np.exp(a), sum), np.divide(np.exp(b), sum)]
+
+
 # Need to mark names and give probability
+prob_c = [calRealProbability(a, b) for a, b in prob]
 mis_idx = choose_mis(pred, label_test)
 mis_idx = [mis_idx[i] for i in np.random.choice(len(mis_idx), 3).astype(int)]
 idx = mis_idx
-print(x_test.iloc[idx], pred[idx], [prob[i] for i in idx], label_test.iloc[idx].values)
+print(x_test.iloc[idx], pred[idx], [[prob[i], prob_c[i]] for i in idx], label_test.iloc[idx].values)
 for i, m in enumerate(idx):
-    fig = plt.figure(num=None, figsize=(16, 9), dpi=720)
+    fig = plt.figure(num=None, figsize=(16, 9), dpi=480)
     xx = x_test.iloc[m].values
     plt.title(
         "Features of Misclassified emails classify " + str(label_test.iloc[m].values[0]) + " as " + str(pred[m])+" #"+str(i))
@@ -124,14 +139,13 @@ for i, m in enumerate(idx):
     #plt.show()
 
 # Calculate the real probability and pick the three most ambiguity emails.
-prob_c = [[np.divide(np.exp(a), np.add(np.exp(a), np.exp(b))), np.divide(np.exp(b), np.add(np.exp(a), np.exp(b)))] for a, b in prob]
 most_ambi = np.array([np.abs(p[0]-p[1]) for p in prob_c])
 most_ambi.sort()
 ambi_idx = [i for i, p in enumerate(prob_c) if np.abs(p[0]-p[1]) in set(most_ambi[:3])]
 idx = ambi_idx
-print(x_test.iloc[idx], pred[idx], [prob[i] for i in idx], label_test.iloc[idx].values)
+print(x_test.iloc[idx], pred[idx], [[prob[i], prob_c[i]] for i in idx], label_test.iloc[idx].values)
 for i, m in enumerate(idx):
-    fig = plt.figure(num=None, figsize=(16, 9), dpi=720)
+    fig = plt.figure(num=None, figsize=(16, 9), dpi=480)
     xx = x_test.iloc[m].values
     plt.title(
         "Features of Most Ambiguilty emails " + str(label_test.iloc[m].values[0]) + " classified as " + str(pred[m])+" #"+str(i))
