@@ -42,14 +42,15 @@ class NBClassifier:
 
     # Calculate parameters based on distribution
     def cal_r(self, xs):
-        result = np.zeros(self.dim)
+        result = np.full(self.dim, self.a, dtype=np.float64)
         for i in range(self.dim):
-            result[i] = xs[i].sum()
+            result[i] += xs[i].sum()
         return result
 
     # Predict label by taking the sum of all features' log probability
-    def predict(self, px):
-        prb = np.full(self.c, 1.0).astype(np.float64)
+    def predict_one(self, px):
+        # Initialize log likelihood as 0
+        prb = np.full(self.c, 0.0).astype(np.float64)
         for i in range(self.c):
             prb[i] += np.log(self.py[i])
             for j in range(self.dim):
@@ -77,7 +78,7 @@ nbc.train(x_train, label_train)
 prob = np.zeros([num_test, 2], dtype=np.float64)
 bad_case = []
 for i, x in enumerate(x_test.values):
-    prob[i] = nbc.predict(x) # Predict test data
+    prob[i] = nbc.predict_one(x) # Predict test data
 
 
 pred = np.array([a < b for a, b in prob]).astype(int)
@@ -141,7 +142,7 @@ for i, m in enumerate(idx):
 # Calculate the real probability and pick the three most ambiguity emails.
 most_ambi = np.array([np.abs(p[0]-p[1]) for p in prob_c])
 most_ambi.sort()
-ambi_idx = [i for i, p in enumerate(prob_c) if np.abs(p[0]-p[1]) in set(most_ambi[:3])]
+ambi_idx = [i for i, p in enumerate(prob_c) if np.abs(p[0]-p[1]) in most_ambi[:3]]
 idx = ambi_idx
 print(x_test.iloc[idx], pred[idx], [[prob[i], prob_c[i]] for i in idx], label_test.iloc[idx].values)
 for i, m in enumerate(idx):
