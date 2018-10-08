@@ -146,11 +146,12 @@ for i in range(5):
     for _ in range(100):
         r.append(model.iter())
     result.append(r)
-    print("Finish iteration %s" % i)
+    print("Finish the %s-th model" % (i+1))
 fig = plt.figure(num=None, figsize=(16, 9), dpi=480)
 plt.title("lnp(R,U,V) from iteration 2 through 100")
+colors = {0: 'b', 1: 'g', 2: 'c', 3: 'm', 4: 'y'}
 for i in range(5):
-    plt.plot(np.arange(80), result[i][20:], 'bo', label=str(i))
+    plt.plot(np.arange(80), result[i][20:], colors[i]+'o', label=str(i))
 plt.xlabel("Number of Iterations")
 plt.ylabel("lnp(R,U,V)")
 plt.legend()
@@ -180,6 +181,6 @@ for _ in range(5):
     print(count)
     acc = (count[0][0] + count[1][1]) / np.sum(count)
     if acc > max_acc:
-        pickle.dump(model, 'best_model')
+        pickle.dump(model, open('best_model.pkl', 'wb+'))
         result = pd.DataFrame({'predicted_-1': count[:, 0], 'predicted_1': count[:, 1]})
-        result.to_csv('best_result')
+        result.to_csv('best_result.csv')
