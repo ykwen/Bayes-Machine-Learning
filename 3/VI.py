@@ -15,36 +15,35 @@ class VI:
     def __init__(self, dim):
         self.dim = dim
         self.a0, self.b0 = 1e-16, 1e-16
-        self.e0, self.f0 = 1, 1
+        self.e0, self.f0 = 1., 1.
         # initialize parameters for updates
         self.at, self.bt, self.et, self.ft = np.full(dim, self.a0), np.full(dim, self.b0), self.e0, self.f0
 
         # initialize Sigma in some way
-        self.alpha0 = np.random.gamma(1, 1, size=dim)
+        self.alpha0 = np.random.gamma(1, 1, size=dim).astype(np.float64)
         self.sigma0 = np.linalg.inv(np.diag(self.alpha0))
-        self.mu0 = np.full(dim, 0)
-        self.w0 = np.random.multivariate_normal(mean=self.mu0, cov=self.sigma0)
+        self.mu0 = np.zeros(dim, dtype=np.float64)
         self.mut, self.sigmat = self.mu0, self.sigma0
 
         # initialize data parameters
         self.x, self.y, self.N = None, None, 0
 
-    def train(self, x, y, epoch):
-        self.x, self.y = x.values, y.values
+    def train(self, in_x, in_y, epoch):
+        self.x, self.y = in_x.values, in_y.values
         self.N = float(self.x.shape[0])
         elbo = []
         self.cal_const_mid_results()
         for i in range(epoch):
             self.cal_mid_results()
-            self.update_lambda()
             self.update_w()
             self.update_alpha()
+            self.update_lambda()
             elbo.append(self.cal_elbo())
         return elbo
 
     def predict(self, x):
         w_hat = self.mut
-        return np.matmul(x.transpose(), w_hat)
+        return np.matmul(x, w_hat)
 
     def cal_const_mid_results(self):
         self.xx = np.diagonal(self.x.dot(self.x.T))
@@ -56,7 +55,7 @@ class VI:
 
     def update_lambda(self):
         self.et = self.e0 + self.N / 2
-        self.ft = self.f0 + np.sum(self.y_wx_2 + self.xsx)
+        self.ft = self.f0 + np.sum(self.y_wx_2 + self.xsx) / 2
 
     def update_w(self):
         r = (self.et / self.ft)
@@ -65,29 +64,87 @@ class VI:
 
     def update_alpha(self):
         self.at = np.full(self.dim, self.a0) + 1 / 2
-        self.bt = self.b0 + np.diagonal(self.sigmat) + self.mut ** 2
+        self.bt = self.b0 + (np.diagonal(self.sigmat) + self.mut ** 2) / 2
 
     def cal_elbo(self):
         r = (self.et / self.ft)
-        elbo = (-(self.e0 + self.N / 2) * np.log(self.ft) - (r / 2) * np.sum(self.y_wx_2 + self.xsx)-r * self.f0 -
+        _, logdev = np.linalg.slogdet(self.sigmat)
+        elbo = (-(self.e0 + self.N / 2) * np.log(self.ft) - (r / 2) * np.sum(self.y_wx_2 + self.xsx) - r * self.f0 -
                 np.sum(np.diag(np.log(self.bt)) - np.matmul(np.diag(self.at / self.bt),
                                                             (self.sigmat + self.mut ** 2))) / 2 -
                 np.sum(self.a0 * np.log(self.bt) + self.b0 * self.at / self.bt) +
-                np.log(np.linalg.det(self.sigmat)) / 2)
+                logdev / 2)
         return elbo
 
 
-if __name__ == '__main__':
-    x, y, z = read_one_set(1)
+def train_one_set(i):
+    x, y, z = read_one_set(i)
     model = VI(x.shape[1])
     result = model.train(x, y, 500)
-    fig = plt.figure(num=None, figsize=(16, 9), dpi=480)
-    plt.title("L of 500 iterations")
+    plt.figure(num=None, figsize=(16, 9), dpi=480)
+    plt.title("L of 500 iterations of data set {}".format(i))
     plt.plot(np.arange(500), result, 'g')
     plt.xlabel("Number of Iterations")
     plt.ylabel("L")
-    #plt.savefig('(a)')
-    #plt.show()
-    print(result)
+    plt.savefig('question(a)_set{}'.format(i))
+    plt.show()
+    return model
 
 
+def question_a(test=None):
+    models = []
+    if test:
+        model = train_one_set(test)
+        return [model]
+    for i in range(1, 4):
+        model = train_one_set(i)
+        models.append(model)
+    return models
+
+
+def question_b(models):
+    for i, model in enumerate(models):
+        tmp = model.bt / model.at
+        plt.figure(num=None, figsize=(16, 9), dpi=480)
+        plt.title(r"$1 / E_q[\alpha_k]$ of data set {}".format(i + 1))
+        plt.plot(np.arange(model.dim), tmp, 'b')
+        plt.xlabel("k")
+        plt.ylabel(r"$1 / E_q[\alpha_k]$")
+        plt.savefig('question(b)_set{}'.format(i + 1))
+        plt.show()
+
+
+def question_c(models):
+    for i, model in enumerate(models):
+        tmp = model.ft / model.et
+        print(r"The 1 / $E_q[\lambda]$ of set{} is {}".format(i + 1, tmp))
+
+
+def question_d(models, index=None):
+    for i, model in enumerate(models):
+        if index:
+            idx = index[i]
+        else:
+            idx = i + 1
+        x, y, z = read_one_set(idx)
+        cal_y = 10 * np.sinc(z)
+        pred_y = model.predict(x)
+        plt.figure(num=None, figsize=(16, 9), dpi=480)
+        plt.title("y values of data set {}".format(idx))
+        plt.plot(z, pred_y, 'b', label='y_hat')
+        plt.plot(z, y, 'ro', label='y_real')
+        plt.plot(z, cal_y, 'g', label='y_calculated')
+        plt.xlabel("z")
+        plt.ylabel("y")
+        plt.legend()
+        plt.savefig('question(d)_set{}'.format(idx))
+        plt.show()
+
+
+if __name__ == '__main__':
+    models = question_a(test=3)
+    '''
+    question_b(models)
+    question_c(models)
+    '''
+    question_d(models, [3])
