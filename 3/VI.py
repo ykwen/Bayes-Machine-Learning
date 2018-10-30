@@ -22,7 +22,8 @@ class VI:
         # initialize Sigma in some way
         self.alpha0 = np.random.gamma(1, 1, size=dim).astype(np.float64)
         self.sigma0 = np.linalg.inv(np.diag(self.alpha0))
-        self.mu0 = np.zeros(dim, dtype=np.float64)
+        #self.sigma0 = np.diag(np.ones(dim, dtype=np.float64))
+        self.mu0 = np.zeros([dim, 1], dtype=np.float64)
         self.mut, self.sigmat = self.mu0, self.sigma0
 
         # initialize data parameters
@@ -35,9 +36,9 @@ class VI:
         self.cal_const_mid_results()
         for i in range(epoch):
             self.cal_mid_results()
-            self.update_w()
-            self.update_alpha()
             self.update_lambda()
+            self.update_alpha()
+            self.update_w()
             elbo.append(self.cal_elbo())
         return elbo
 
@@ -46,7 +47,8 @@ class VI:
         return np.matmul(x, w_hat)
 
     def cal_const_mid_results(self):
-        self.xx = np.diagonal(self.x.dot(self.x.T))
+        self.xx = self.x.T.dot(self.x)
+        # one bug fixed here, delete diag of xx
         self.yx = np.matmul(self.x.T, self.y)
 
     def cal_mid_results(self):
@@ -55,24 +57,28 @@ class VI:
 
     def update_lambda(self):
         self.et = self.e0 + self.N / 2
-        self.ft = self.f0 + np.sum(self.y_wx_2 + self.xsx) / 2
+        self.ft = self.f0 + np.sum(self.y_wx_2) / 2 + np.trace(self.xsx) / 2
+        # fixed a bug here from sum to trace
 
     def update_w(self):
         r = (self.et / self.ft)
-        self.sigmat = np.linalg.inv(np.diag(self.at / self.bt) + r * np.sum(self.xx))
-        self.mut = r * np.matmul(self.sigmat, self.yx).reshape(self.dim)
+        self.sigmat = np.linalg.inv(np.diag(self.at / self.bt) + r * self.xx)
+        # fixed a bug here from sum xx to xx (D, D)
+        self.mut = r * np.matmul(self.sigmat, self.yx).reshape([self.dim, 1])
+        # fixed a bug here, reshape to 2d rather than 1d
 
     def update_alpha(self):
         self.at = np.full(self.dim, self.a0) + 1 / 2
-        self.bt = self.b0 + (np.diagonal(self.sigmat) + self.mut ** 2) / 2
+        self.bt = self.b0 + (np.diag(self.sigmat) + self.mut.reshape(self.dim) ** 2) / 2
 
     def cal_elbo(self):
         r = (self.et / self.ft)
         _, logdev = np.linalg.slogdet(self.sigmat)
-        elbo = (-(self.e0 + self.N / 2) * np.log(self.ft) - (r / 2) * np.sum(self.y_wx_2 + self.xsx) - r * self.f0 -
-                np.sum(np.diag(np.log(self.bt)) - np.matmul(np.diag(self.at / self.bt),
-                                                            (self.sigmat + self.mut ** 2))) / 2 -
-                np.sum(self.a0 * np.log(self.bt) + self.b0 * self.at / self.bt) +
+        E_pw = np.trace(np.diag(np.log(self.bt)) -
+                        np.matmul(np.diag(self.at / self.bt), (self.sigmat + self.mut.dot(self.mut.T)))) / 2
+        # fixed a bug from sum to trace here, mut**2 to mut mut^T
+        elbo = (-(self.e0 + self.N / 2) * np.log(self.ft) - (r / 2) * (np.sum(self.y_wx_2) + np.trace(self.xsx))
+                - r * self.f0 - E_pw - np.sum(self.a0 * np.log(self.bt) + self.b0 * self.at / self.bt) +
                 logdev / 2)
         return elbo
 
@@ -142,9 +148,7 @@ def question_d(models, index=None):
 
 
 if __name__ == '__main__':
-    models = question_a(test=3)
-    '''
+    models = question_a()
     question_b(models)
     question_c(models)
-    '''
-    question_d(models, [3])
+    question_d(models)

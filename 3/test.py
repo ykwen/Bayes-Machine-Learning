@@ -15,26 +15,11 @@ def read_one_set(num):
 a_0 = b_0 = 1e-16
 e_0 = f_0 = 1
 
-def update_q_lambda(n, e_0, f_0, mu, sigma, Y_T_Y, Y_T_X_T, X_X_T):
-    e_p = 0.5 * n + e_0
-    E_w_w_T = sigma + np.dot(mu, mu.T)
-    f_p = 0.5 * (Y_T_Y - 2 * np.dot(Y_T_X_T, mu) + np.trace(np.dot(E_w_w_T, X_X_T))) + f_0
-    return e_p, float(f_p)
-
 def update_q_alpha_k(a_0, b_0, mu, sigma, k):
     a_kp = 0.5 + a_0
     E_w_k_2 = mu[k]**2 + sigma[k, k]
     b_kp = 0.5 * E_w_k_2 + b_0
     return a_kp, b_kp
-
-# Update q(w)
-def update_q_w(e_t, f_t, a_t, b_t, X_X_T, X, Y):
-    A_p = a_t / b_t
-    E_lambda = e_t/float(f_t)
-    M_p = E_lambda * X_X_T + np.diag(A_p)
-    sigma_p = np.linalg.inv(M_p)
-    mu_p = E_lambda * np.dot(np.dot(sigma_p, X.T), Y)
-    return mu_p, sigma_p
 
 # Compute L_1
 def L_1(dim, a_t, b_t, mu_t, sigma_t):
@@ -92,6 +77,43 @@ def L_7(n, e_t, f_t, mu_t, sigma_t, Y_T_Y, Y_T_X_T, X_X_T):
     return 0.5 * n * (E_ln_lambda - np.log(2 * np.pi)) \
            - 0.5 * E_lambda * (Y_T_Y - 2 * np.dot(Y_T_X_T, mu_t) + np.trace(np.dot(E_w_T_w, X_X_T)))
 
+def update_alpha2(a_0, b_0, mu_t, sigma_t, dim):
+    at = np.full(dim, a_0) + 1 / 2
+    bt = b_0 + (np.diag(sigma_t) + mu_t.reshape(dim) ** 2) / 2
+    return at, bt
+
+def update_w2(e_t, f_t, a_t, b_t, dim, x, y):
+    r = (e_t / f_t)
+    xx = x.T.dot(x)
+    yx = np.matmul(x.T, y)
+    sigmat = np.linalg.inv(np.diag(a_t / b_t) + r * xx)
+    mut = r * np.matmul(sigmat, yx).reshape([dim, 1])
+    return mut, sigmat
+
+# Update q(w)
+def update_q_w(e_t, f_t, a_t, b_t, X_X_T, X, Y):
+    A_p = a_t / b_t
+    E_lambda = e_t/float(f_t)
+    M_p = E_lambda * X_X_T + np.diag(A_p)
+    sigma_p = np.linalg.inv(M_p)
+    mu_p = E_lambda * np.dot(np.dot(sigma_p, X.T), Y)
+    return mu_p, sigma_p
+
+
+def update_q_lambda(n, e_0, f_0, mu, sigma, Y_T_Y, Y_T_X_T, X_X_T):
+    e_p = 0.5 * n + e_0
+    E_w_w_T = sigma + np.dot(mu, mu.T)
+    f_p = 0.5 * (Y_T_Y - 2 * np.dot(Y_T_X_T, mu) + np.trace(np.dot(E_w_w_T, X_X_T))) + f_0
+    return e_p, float(f_p)
+
+
+def update_lambda2(n, e_0, f_0, mu_t, sigma_t, x, y):
+    et = e_0 + n / 2
+    y_wx = y - np.matmul(x, mu_t)
+    y_wx_2 = y_wx ** 2
+    xsx = np.matmul(sigma_t, x.T.dot(x))
+    ft = f_0 + np.sum(y_wx_2)/2 + np.trace(xsx) / 2
+    return et, ft
 
 def variational_inference(X, y):
     # Get dimensions of X
@@ -117,6 +139,10 @@ def variational_inference(X, y):
     for t in range(500):
         # print t
         e_t, f_t = update_q_lambda(n, e_0, f_0, mu_t, sigma_t, Y_T_Y, Y_T_X_T, X_X_T)
+        et2, ft2 = update_lambda2(n, e_0, f_0, mu_t, sigma_t, X, y)
+        #print(f_t, ft2)
+        e_t, f_t = et2, ft2
+
         a_p = []
         b_p = []
         for k in range(dim):
@@ -125,7 +151,10 @@ def variational_inference(X, y):
             b_p.append(b_kp)
         a_t = np.array(a_p)
         b_t = np.array(b_p).flatten()
-        mu_t, sigma_t = update_q_w(e_t, f_t, a_t, b_t, X_X_T, X, y)
+        a_t, b_t = update_alpha2(a_0, b_0, mu_t, sigma_t, dim)
+
+        mu_t, sigma_t = update_w2(e_t, f_t, a_t, b_t, dim, x, y)
+
         L_1_t = L_1(dim, a_t, b_t, mu_t, sigma_t)
         L_2_t = L_2(e_0, f_0, e_t, f_t)
         L_3_t = L_3(a_0, b_0, a_t, b_t)
@@ -138,7 +167,7 @@ def variational_inference(X, y):
 
     return L, a_t, b_t, e_t, f_t, mu_t, sigma_t, dim
 
-LL_1, a_1, b_1, e_1, f_1, mu_1, sigma_1, dim_1 = variational_inference(x, y)
+LL_1, a_1, b_1, e_1, f_1, mu_1, sigma_1, dim_1 = variational_inference(x.values, y.values)
 
 plt.plot(range(500), LL_1)
 plt.xlabel('Iterations')
