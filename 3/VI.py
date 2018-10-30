@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
 data_path = "./data/"
 kind_sets = ["X_set{}.csv", "y_set{}.csv", "z_set{}.csv"]
@@ -18,12 +19,12 @@ class VI:
         # initialize parameters for updates
         self.at, self.bt, self.et, self.ft = np.full(dim, self.a0), np.full(dim, self.b0), self.e0, self.f0
 
-        # initialize alpha based on distributions
-        self.alpha0 = np.random.gamma(shape=self.a0, scale=1 / self.b0, size=dim)
-        self.sigma0 = np.diag(self.alpha0)
+        # initialize Sigma in some way
+        self.alpha0 = np.random.gamma(1, 1, size=dim)
+        self.sigma0 = np.linalg.inv(np.diag(self.alpha0))
         self.mu0 = np.full(dim, 0)
         self.w0 = np.random.multivariate_normal(mean=self.mu0, cov=self.sigma0)
-        self.alphat, self.mut, self.sigmat = self.alpha0, self.mu0, self.sigma0
+        self.mut, self.sigmat = self.mu0, self.sigma0
 
         # initialize data parameters
         self.x, self.y, self.N = None, None, 0
@@ -59,20 +60,34 @@ class VI:
 
     def update_w(self):
         r = (self.et / self.ft)
-        self.sigmat = np.diag(self.at / self.bt) + r * np.sum(self.xx)
-        self.mut = r * np.matmul(self.sigmat, self.yx)
+        self.sigmat = np.linalg.inv(np.diag(self.at / self.bt) + r * np.sum(self.xx))
+        self.mut = r * np.matmul(self.sigmat, self.yx).reshape(self.dim)
 
     def update_alpha(self):
-        self.at = self.a0 + 1 / 2
+        self.at = np.full(self.dim, self.a0) + 1 / 2
         self.bt = self.b0 + np.diagonal(self.sigmat) + self.mut ** 2
 
     def cal_elbo(self):
         r = (self.et / self.ft)
         elbo = (-(self.e0 + self.N / 2) * np.log(self.ft) - (r / 2) * np.sum(self.y_wx_2 + self.xsx)-r * self.f0 -
-                np.sum((np.diag(np.log(self.bt)) - np.diag(self.at / self.bt) *
-                        (np.diagonal(self.sigmat) + self.mut ** 2))) / 2 -
+                np.sum(np.diag(np.log(self.bt)) - np.matmul(np.diag(self.at / self.bt),
+                                                            (self.sigmat + self.mut ** 2))) / 2 -
                 np.sum(self.a0 * np.log(self.bt) + self.b0 * self.at / self.bt) +
                 np.log(np.linalg.det(self.sigmat)) / 2)
         return elbo
+
+
+if __name__ == '__main__':
+    x, y, z = read_one_set(1)
+    model = VI(x.shape[1])
+    result = model.train(x, y, 500)
+    fig = plt.figure(num=None, figsize=(16, 9), dpi=480)
+    plt.title("L of 500 iterations")
+    plt.plot(np.arange(500), result, 'g')
+    plt.xlabel("Number of Iterations")
+    plt.ylabel("L")
+    #plt.savefig('(a)')
+    #plt.show()
+    print(result)
 
 
