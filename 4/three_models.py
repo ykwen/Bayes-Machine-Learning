@@ -141,7 +141,7 @@ class Gibbs:
             # generate theta
             for ii, c_i in enumerate(self.c):
                 self.a_t[c_i], self.b_t[c_i] = self.a0 + self.X[ii], self.b0 + 20 - self.X[ii]
-            self.theta = (self.a_t > self.b_t).astype(np.int16)
+            self.theta = np.random.beta(self.a_t, self.b_t)
 
         return clusters, num
 
