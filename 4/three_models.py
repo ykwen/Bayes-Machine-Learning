@@ -148,7 +148,7 @@ class Gibbs:
     def __init__(self, X, K, alpha0, a0, b0):
         self.X, self.N, self.K = X, len(X), K
         self.alpha0, self.a0, self.b0 = alpha0, np.float64(a0), np.float64(b0)
-        self.alpha_t, self.a_t, self.b_t = np.random.rand(K) + self.alpha0, np.repeat(self.a0, K), np.repeat(self.b0, K)
+        self.alpha_t, self.a_t, self.b_t = np.repeat(self.alpha0, K), np.repeat(self.a0, K), np.repeat(self.b0, K)
 
         self.c = np.zeros(self.N).astype(np.float64)
         theta, phi = np.random.rand(K), np.random.rand(self.N * K).reshape([self.N, K])
@@ -164,9 +164,11 @@ class Gibbs:
             x_theta = self.calculate_p_x()
             num_unique = len(unique)
             self.phi[:, :num_unique] = x_theta[:, :num_unique] * counts / (self.alpha0 + self.N - 1)
-            self.phi[:, num_unique] = np.sum(
-                self.alpha0 * x_theta[:, num_unique:] / ((self.alpha0 + self.N - 1) * self.K), axis=1
+            self.phi[:, num_unique] = (self.alpha0 / (self.alpha0 + self.N - 1)) * gamma(
+                self.X + self.a0) * gamma(np.float64(20) - self.X + self.b0) / gamma(
+                self.a0 + np.float64(20) + self.b0
             )
+
             # confirm that all the others to 0
             self.phi[:, num_unique + 1:] = np.zeros_like(self.phi[:, num_unique + 1:])
             self.phi = self.phi / np.sum(self.phi, axis=1)[:, None]
