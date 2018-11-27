@@ -150,7 +150,7 @@ class Gibbs:
         self.alpha0, self.a0, self.b0 = alpha0, np.float64(a0), np.float64(b0)
         self.alpha_t, self.a_t, self.b_t = np.repeat(self.alpha0, K), np.repeat(self.a0, K), np.repeat(self.b0, K)
 
-        self.c = np.zeros(self.N).astype(np.float64)
+        self.c = np.zeros(self.N).astype(np.int16)
         theta, phi = np.random.rand(K), np.random.rand(self.N * K).reshape([self.N, K])
         self.theta, self.phi = np.exp(theta) / np.sum(np.exp(theta)), np.exp(phi) / np.sum(np.exp(phi), axis=1)[:, None]
 
@@ -164,15 +164,16 @@ class Gibbs:
             x_theta = self.calculate_p_x()
             num_unique = len(unique)
             self.phi[:, :num_unique] = x_theta[:, :num_unique] * counts / (self.alpha0 + self.N - 1)
-            self.phi[:, num_unique] = (self.alpha0 / (self.alpha0 + self.N - 1)) * gamma(
-                self.X + self.a0) * gamma(np.float64(20) - self.X + self.b0) / gamma(
-                self.a0 + np.float64(20) + self.b0
-            )
+            if num_unique < self.K:
+                self.phi[:, num_unique] = (self.alpha0 / (self.alpha0 + self.N - 1)) * gamma(
+                    self.X + self.a0) * gamma(np.float64(20) - self.X + self.b0) / gamma(
+                    self.a0 + np.float64(20) + self.b0
+                ) * comb(20, self.X)
 
-            # confirm that all the others to 0
-            self.phi[:, num_unique + 1:] = np.zeros_like(self.phi[:, num_unique + 1:])
+                # confirm that all the others to 0
+                self.phi[:, num_unique + 1:] = np.zeros_like(self.phi[:, num_unique + 1:])
             self.phi = self.phi / np.sum(self.phi, axis=1)[:, None]
-            self.c = np.argmax(np.array([np.random.multinomial(1, phi_i) for phi_i in self.phi]), axis=1)
+            self.c = np.array([np.random.choice(np.arange(self.K), 1, p=phi_i) for phi_i in self.phi])
 
             # record clusters with n
             unique, counts = np.unique(self.c, return_counts=True)
@@ -243,11 +244,11 @@ if __name__ == '__main__':
     for i, cluster in enumerate(clusters):
         plt.plot(np.arange(t), cluster, label="cluster_{}".format(i+1))
     plt.legend()
-    plt.savefig("3_b")
+    # plt.savefig("3_b")
     plt.show()
     plt.title("number of clusters")
     plt.plot(np.arange(t), num)
-    plt.savefig("3_c")
+    # plt.savefig("3_c")
     plt.show()
 
 
