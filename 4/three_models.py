@@ -175,6 +175,10 @@ class Gibbs:
                 self.a_t[c_i], self.b_t[c_i] = self.a_t[c_i] + self.X[ii], self.b_t[c_i] + 20 - self.X[ii]
             self.theta = np.random.beta(self.a_t, self.b_t)
 
+            verbose = int(num_iters / 20)
+            if itr % verbose == 0:
+                print("Now at iteration {}".format(itr))
+
         return clusters, num
 
     def update_phis(self, ind):
@@ -249,11 +253,11 @@ if __name__ == '__main__':
     for i, cluster in enumerate(clusters):
         plt.plot(np.arange(t), cluster, label="cluster_{}".format(i+1))
     plt.legend()
-    # plt.savefig("3_b")
+    plt.savefig("3_b")
     plt.show()
     plt.title("number of clusters")
     plt.plot(np.arange(t), num)
-    # plt.savefig("3_c")
+    plt.savefig("3_c")
     plt.show()
 
 
