@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.stats import beta, multinomial, dirichlet
+from scipy.stats import beta, multinomial, dirichlet, binom
 from scipy.special import comb, digamma, gamma, factorial
 from heapq import nlargest
 import pandas as pd
@@ -96,7 +96,7 @@ class VI:
         phi_b_x = digamma(b) - digamma(a + b)
         phi_alpha, phi_alpha0 = digamma(alpha), digamma(np.sum(alpha_t))
         p_x = np.sum(phi_a_x * self.X + phi_b_x * (20 - self.X))
-        p_c = np.sum(digamma(alpha)) - digamma(np.sum(self.alpha_t))
+        p_c = np.sum(digamma(alpha) - digamma(np.sum(self.alpha_t)))
         p_theta = np.sum((self.a0 - 1) * phi_a + (self.b0 - 1) * phi_b)
         p_pi = np.sum((self.alpha0 - 1) * (phi_alpha - phi_alpha0))
 
@@ -151,29 +151,14 @@ class Gibbs:
         self.alpha_t, self.a_t, self.b_t = np.repeat(self.alpha0, K), np.repeat(self.a0, K), np.repeat(self.b0, K)
 
         self.c = np.zeros(self.N).astype(np.int16)
-        theta, phi = np.random.rand(K), np.random.rand(self.N * K).reshape([self.N, K])
-        self.theta, self.phi = np.exp(theta) / np.sum(np.exp(theta)), np.exp(phi) / np.sum(np.exp(phi), axis=1)[:, None]
+        self.theta, self.phi = np.random.beta(a0, b0, size=K), np.zeros([self.N, self.K])
 
     def train(self, num_iters):
         clusters, num = np.zeros([6, num_iters]), np.zeros(num_iters)
         # generate phi
         for itr in range(num_iters):
-            unique, counts = np.unique(self.c, return_counts=True)
-            # re-index
-            unique = [j for j in range(len(unique))]
-            x_theta = self.calculate_p_x()
-            num_unique = len(unique)
-            self.phi[:, :num_unique] = x_theta[:, :num_unique] * counts / (self.alpha0 + self.N - 1)
-            if num_unique < self.K:
-                self.phi[:, num_unique] = (self.alpha0 / (self.alpha0 + self.N - 1)) * gamma(
-                    self.X + self.a0) * gamma(np.float64(20) - self.X + self.b0) / gamma(
-                    self.a0 + np.float64(20) + self.b0
-                ) * comb(20, self.X)
-
-                # confirm that all the others to 0
-                self.phi[:, num_unique + 1:] = np.zeros_like(self.phi[:, num_unique + 1:])
-            self.phi = self.phi / np.sum(self.phi, axis=1)[:, None]
-            self.c = np.array([np.random.choice(np.arange(self.K), 1, p=phi_i) for phi_i in self.phi])
+            for ind in range(self.N):
+                self.update_phis(ind)
 
             # record clusters with n
             unique, counts = np.unique(self.c, return_counts=True)
@@ -183,7 +168,7 @@ class Gibbs:
             else:
                 clusters[:num_unique, itr], num[itr] = nlargest(num_unique, counts), num_unique
 
-            # generate theta
+            # generate theta based on c
             self.a_t, self.b_t = np.repeat(self.a0, self.K), np.repeat(self.b0, self.K)
             for ii, c_i in enumerate(self.c):
                 self.a_t[c_i], self.b_t[c_i] = self.a0 + self.X[ii], self.b0 + 20 - self.X[ii]
@@ -191,11 +176,26 @@ class Gibbs:
 
         return clusters, num
 
-    def calculate_p_x(self):
-        x_theta = np.zeros([self.N, self.K]).astype(np.float64)
-        for i, xx in enumerate(self.X):
-            x_theta[i] = comb(20, xx) * (self.theta ** xx) * ((1 - self.theta) ** (20 - xx))
-        return x_theta
+    def update_phis(self, ind):
+        """
+        Update phi value given one data point
+        :param ind: the index of given data point
+        :return: None, all in self.values
+        """
+        unique, counts = np.unique(self.c, return_counts=True)
+        # re-index
+        unique = [j for j in range(len(unique))]
+        num_unique = len(unique)
+        self.phi = np.zeros_like(self.phi)
+        self.phi[:, :num_unique] = x_theta[:, :num_unique] * counts / (self.alpha0 + self.N - 1)
+        if num_unique < self.K:
+            self.phi[:, num_unique] = (self.alpha0 / (self.alpha0 + self.N - 1)) * \
+                                      gamma(self.X + self.a0) * gamma(np.float64(20) - self.X + self.b0) / \
+                                      gamma(self.a0 + np.float64(20) + self.b0) * comb(20, self.X) * \
+                                      gamma(self.a0 + self.b0) / (gamma(self.a0) * gamma(self.b0))
+
+        self.phi = self.phi / np.sum(self.phi, axis=1)[:, None]
+        self.c = np.array([np.random.choice(np.arange(self.K), 1, p=phi_i) for phi_i in self.phi])
 
 
 if __name__ == '__main__':
