@@ -157,6 +157,7 @@ class Gibbs:
         clusters, num = np.zeros([6, num_iters]), np.zeros(num_iters)
         # generate phi
         for itr in range(num_iters):
+            self.phi = np.zeros_like(self.phi)
             for ind in range(self.N):
                 self.update_phis(ind)
 
@@ -171,7 +172,7 @@ class Gibbs:
             # generate theta based on c
             self.a_t, self.b_t = np.repeat(self.a0, self.K), np.repeat(self.b0, self.K)
             for ii, c_i in enumerate(self.c):
-                self.a_t[c_i], self.b_t[c_i] = self.a0 + self.X[ii], self.b0 + 20 - self.X[ii]
+                self.a_t[c_i], self.b_t[c_i] = self.a_t[c_i] + self.X[ii], self.b_t[c_i] + 20 - self.X[ii]
             self.theta = np.random.beta(self.a_t, self.b_t)
 
         return clusters, num
@@ -182,20 +183,24 @@ class Gibbs:
         :param ind: the index of given data point
         :return: None, all in self.values
         """
+        xx = self.X[ind]
         unique, counts = np.unique(self.c, return_counts=True)
         # re-index
         unique = [j for j in range(len(unique))]
         num_unique = len(unique)
-        self.phi = np.zeros_like(self.phi)
-        self.phi[:, :num_unique] = x_theta[:, :num_unique] * counts / (self.alpha0 + self.N - 1)
-        if num_unique < self.K:
-            self.phi[:, num_unique] = (self.alpha0 / (self.alpha0 + self.N - 1)) * \
-                                      gamma(self.X + self.a0) * gamma(np.float64(20) - self.X + self.b0) / \
-                                      gamma(self.a0 + np.float64(20) + self.b0) * comb(20, self.X) * \
-                                      gamma(self.a0 + self.b0) / (gamma(self.a0) * gamma(self.b0))
+        self.phi[ind, :num_unique] = binom.pmf(xx, 20, self.theta[:num_unique]) * counts \
+                                     / (self.alpha0 + self.N - 1)
 
-        self.phi = self.phi / np.sum(self.phi, axis=1)[:, None]
-        self.c = np.array([np.random.choice(np.arange(self.K), 1, p=phi_i) for phi_i in self.phi])
+        self.phi[ind, num_unique] = (self.alpha0 / (self.alpha0 + self.N - 1)) * \
+                                    gamma(xx + self.a0) * gamma(np.float64(20) - xx + self.b0) / \
+                                    gamma(self.a0 + np.float64(20) + self.b0) * comb(20, xx) * \
+                                    gamma(self.a0 + self.b0) / (gamma(self.a0) * gamma(self.b0))
+
+        self.phi[ind] = self.phi[ind] / np.sum(self.phi[ind])
+        self.c[ind] = np.random.choice(np.arange(num_unique + 1), 1, p=self.phi[ind, :num_unique + 1])
+
+        if self.c[ind] == num_unique:
+            self.theta[num_unique] = np.random.beta(self.a0 + xx, self.b0 + 20 - xx)
 
 
 if __name__ == '__main__':
