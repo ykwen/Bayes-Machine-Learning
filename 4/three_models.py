@@ -151,8 +151,8 @@ class Gibbs:
         self.alpha_t, self.a_t, self.b_t = np.random.rand(K) + self.alpha0, np.repeat(self.a0, K), np.repeat(self.b0, K)
 
         self.c = np.zeros(self.N).astype(np.float64)
-        theta, pi = np.random.rand(K), np.random.rand(self.N * K).reshape([self.N, K])
-        self.theta, self.pi = np.exp(theta) / np.sum(np.exp(theta)), np.exp(pi) / np.sum(np.exp(pi), axis=1)[:, None]
+        theta, phi = np.random.rand(K), np.random.rand(self.N * K).reshape([self.N, K])
+        self.theta, self.phi = np.exp(theta) / np.sum(np.exp(theta)), np.exp(phi) / np.sum(np.exp(phi), axis=1)[:, None]
 
     def train(self, num_iters):
         clusters, num = np.zeros([6, num_iters]), np.zeros(num_iters)
@@ -163,13 +163,14 @@ class Gibbs:
             unique = [j for j in range(len(unique))]
             x_theta = self.calculate_p_x()
             num_unique = len(unique)
-            self.pi[:, :num_unique] = x_theta[:, :num_unique] * counts / (self.alpha0 + self.N - 1)
-            self.pi[:, num_unique] = np.sum(
-                x_theta[:, num_unique:] * beta.pdf(np.arange(num_unique, self.K), self.a0, self.b0), axis=1
+            self.phi[:, :num_unique] = x_theta[:, :num_unique] * counts / (self.alpha0 + self.N - 1)
+            self.phi[:, num_unique] = np.sum(
+                self.alpha0 * x_theta[:, num_unique:] / ((self.alpha0 + self.N - 1) * self.K), axis=1
             )
-            self.pi[:, num_unique + 1:] = np.zeros_like(self.pi[:, num_unique + 1:])
-            self.pi = self.pi[:, :num_unique + 1] / np.sum(self.pi[:, :num_unique + 1], axis=1)[:, None]
-            self.c = np.argmax(self.pi, axis=1)
+            # confirm that all the others to 0
+            self.phi[:, num_unique + 1:] = np.zeros_like(self.phi[:, num_unique + 1:])
+            self.phi = self.phi / np.sum(self.phi, axis=1)[:, None]
+            self.c = np.argmax(np.array([np.random.multinomial(1, phi_i) for phi_i in self.phi]), axis=1)
 
             # record clusters with n
             unique, counts = np.unique(self.c, return_counts=True)
@@ -180,6 +181,7 @@ class Gibbs:
                 clusters[:num_unique, itr], num[itr] = nlargest(num_unique, counts), num_unique
 
             # generate theta
+            self.a_t, self.b_t = np.repeat(self.a0, self.K), np.repeat(self.b0, self.K)
             for ii, c_i in enumerate(self.c):
                 self.a_t[c_i], self.b_t[c_i] = self.a0 + self.X[ii], self.b0 + 20 - self.X[ii]
             self.theta = np.random.beta(self.a_t, self.b_t)
