@@ -205,6 +205,10 @@ class Gibbs:
 
         if self.c[ind] == num_unique:
             self.theta[num_unique] = np.random.beta(self.a0 + xx, self.b0 + 20 - xx)
+        else:
+            aa = self.a0 + np.sum([xx for ix, xx in enumerate(self.X) if self.c[ix] == self.c[ind]])
+            bb = self.b0 + np.sum([20 - xx for ix, xx in enumerate(self.X) if self.c[ix] == self.c[ind]])
+            self.theta[self.c[ind]] = np.random.beta(aa, bb)
 
 
 if __name__ == '__main__':
